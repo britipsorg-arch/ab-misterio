@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AB MISTÉRIO</title>
+<style>
+:root {
+  --blue: #16c8ff;
+  --bg: #050812;
+  --panel: #0d1424;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #102747, var(--bg) 65%);
+  color: #f4f8ff;
+  font-family: Arial, sans-serif;
+}
+header {
+  text-align: center;
+  padding: 32px 16px 22px;
+  border-bottom: 1px solid #15304c;
+}
+.logo {
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: var(--blue);
+  text-shadow: 0 0 22px #078dff88;
+}
+header p { color: #9eb4d2; margin-bottom: 0; }
+main { width: min(720px, 92%); margin: 28px auto; }
+.panel {
+  background: #0d1424eF;
+  border: 1px solid #1c4262;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 0 30px #007bff10;
+  margin-bottom: 18px;
+}
+h2 { color: var(--blue); margin-top: 0; }
+.stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.stat {
+  background: #101f34;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #1c4262;
+}
+.stat span { color: var(--blue); font-weight: bold; }
+#question { font-size: 19px; line-height: 1.6; }
+input {
+  width: 100%;
+  padding: 14px;
+  margin: 12px 0;
+  background: #060b15;
+  border: 1px solid #31506e;
+  border-radius: 9px;
+  color: white;
+  font-size: 16px;
+}
+button {
+  border: 0;
+  border-radius: 9px;
+  padding: 13px 17px;
+  background: var(--blue);
+  color: #04101b;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  margin: 4px 4px 4px 0;
+}
+button:hover { filter: brightness(1.15); }
+.secondary {
+  background: #14243b;
+  color: #d8edff;
+  border: 1px solid #31506e;
+}
+#feedback { min-height: 26px; line-height: 1.5; }
+.muted { color: #9eb4d2; font-size: 14px; }
+.hidden { display: none; }
+footer { text-align: center; color: #7189a7; padding: 25px; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AB</div>
+  <h1>AB MISTÉRIO</h1>
+  <p>Decifre os códigos. Descubra os segredos.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="stats">
+      <div class="stat">FASE: <span id="level">1 / 5</span></div>
+      <div class="stat">PONTOS: <span id="score">0</span></div>
+    </div>
+    <h2 id="title">Arquivo secreto #001</h2>
+    <p id="question"></p>
+    <input id="answer" type="text" placeholder="Digite sua resposta..." autocomplete="off">
+    <button id="submit" onclick="checkAnswer()">Decifrar código</button>
+    <button class="secondary" onclick="showHint()">Pedir pista (-20 pontos)</button>
+    <p id="feedback" aria-live="polite"></p>
+    <p id="hint" class="muted"></p>
+  </section>
+
+  <section class="panel">
+    <h2>📁 Registro da investigação</h2>
+    <p id="record">Você ainda não resolveu nenhum arquivo.</p>
+    <p class="muted">Cada acerto vale +100 pontos. Cada pista usada custa 20 pontos.</p>
+  </section>
+
+  <section id="finish" class="panel hidden">
+    <h2>🔓 Investigação concluída!</h2>
+    <p>Você decifrou todos os arquivos desta versão do AB MISTÉRIO.</p>
+    <p>Seu resultado final: <strong id="finalScore"></strong> pontos.</p>
+    <button onclick="restart()">Jogar novamente</button>
+  </section>
+</main>
+<footer>🅰️🅱️ AB MISTÉRIO — Desafie sua mente.</footer>
+
+<script>
+const puzzles = [
+  {
+    title: "Arquivo secreto #001",
+    question: "O que tem mãos, mas não pode aplaudir?",
+    answers: ["relógio", "um relógio", "o relógio"],
+    hint: "Ele costuma ficar na parede ou no seu pulso."
+  },
+  {
+    title: "Arquivo secreto #002",
+    question: "O que sobe, mas nunca desce?",
+    answers: ["idade", "a idade", "sua idade", "minha idade"],
+    hint: "A cada aniversário, você ganha mais."
+  },
+  {
+    title: "Arquivo secreto #003",
+    question: "Quanto mais seca, mais molhada fica. O que é?",
+    answers: ["toalha", "uma toalha", "a toalha"],
+    hint: "Você usa depois do banho."
+  },
+  {
+    title: "Arquivo secreto #004",
+    question: "Tenho cidades, mas não casas; tenho montanhas, mas não árvores; tenho água, mas não peixes. O que sou?",
+    answers: ["mapa", "um mapa", "o mapa"],
+    hint: "Você pode me consultar para encontrar um caminho."
+  },
+  {
+    title: "Arquivo secreto #005",
+    question: "Quanto mais você tira de mim, maior eu fico. O que sou?",
+    answers: ["buraco", "um buraco", "o buraco"],
+    hint: "Pode aparecer quando você cava o chão."
+  }
+];
+
+let current = 0;
+let score = 0;
+let hintUsed = new Set();
+let solved = new Set();
+
+const $ = id => document.getElementById(id);
+const normalize = text => text.trim().toLocaleLowerCase("pt-BR")
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[.!?]/g, "").replace(/\s+/g, " ");
+
+function render() {
+  $("level").textContent = `${current + 1} / ${puzzles.length}`;
+  $("score").textContent = score;
+  $("title").textContent = puzzles[current].title;
+  $("question").textContent = puzzles[current].question;
+  $("answer").value = "";
+  $("hint").textContent = "";
+  $("feedback").textContent = "";
+  $("submit").disabled = false;
+  $("submit").style.opacity = "1";
+  $("answer").disabled = false;
+  $("hint").classList.remove("hidden");
+}
+
+function checkAnswer() {
+  if (solved.has(current)) return;
+  const answer = normalize($("answer").value);
+  if (!answer) {
+    $("feedback").textContent = "Digite uma resposta primeiro.";
+    return;
+  }
+  const accepted = puzzles[current].answers.map(normalize);
+  if (accepted.includes(answer)) {
+    score += 100;
+    solved.add(current);
+    $("score").textContent = score;
+    $("feedback").textContent = "✅ Código decifrado! +100 pontos.";
+    $("record").textContent = `${solved.size} de ${puzzles.length} arquivos decifrados.`;
+    $("submit").disabled = true;
+    $("answer").disabled = true;
+    if (current < puzzles.length - 1) {
+      $("submit").textContent = "Próxima fase";
+      $("submit").onclick = nextPuzzle;
+      $("submit").disabled = false;
+    } else {
+      $("finish").classList.remove("hidden");
+      $("finalScore").textContent = score;
+      $("submit").classList.add("hidden");
+      $("answer").classList.add("hidden");
+    }
+  } else {
+    $("feedback").textContent = "❌ Código incorreto. Tente outra resposta!";
+  }
+}
+
+function nextPuzzle() {
+  current++;
+  if (current >= puzzles.length) return;
+  $("submit").textContent = "Decifrar código";
+  $("submit").onclick = checkAnswer;
+  $("submit").classList.remove("hidden");
+  $("answer").classList.remove("hidden");
+  render();
+}
+
+function showHint() {
+  if (solved.has(current)) {
+    $("hint").textContent = "Você já decifrou este arquivo!";
+    return;
+  }
+  if (hintUsed.has(current)) {
+    $("hint").textContent = "Pista: " + puzzles[current].hint;
+    return;
+  }
+  hintUsed.add(current);
+  score = Math.max(0, score - 20);
+  $("score").textContent = score;
+  $("hint").textContent = "🔎 Pista: " + puzzles[current].hint;
+}
+
+function restart() {
+  current = 0;
+  score = 0;
+  hintUsed = new Set();
+  solved = new Set();
+  $("finish").classList.add("hidden");
+  $("submit").classList.remove("hidden");
+  $("answer").classList.remove("hidden");
+  $("submit").textContent = "Decifrar código";
+  $("submit").onclick = checkAnswer;
+  $("record").textContent = "Você ainda não resolveu nenhum arquivo.";
+  render();
+}
+
+$("answer").addEventListener("keydown", event => {
+  if (event.key === "Enter") checkAnswer();
+});
+render();
+</script>
+</body>
+</html>
